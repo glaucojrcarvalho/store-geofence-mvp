@@ -1,8 +1,7 @@
+---
 name: CI
 
-on:
-  push:
-  pull_request:
+on: [push, pull_request]
 
 jobs:
   build-and-test:
@@ -19,7 +18,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          if [ -f dev-requirements.txt ]; then pip install -r dev-requirements.txt; fi
+          if [ -f dev-requirements.txt ]; then
+            pip install -r dev-requirements.txt
+          fi
 
       - name: Lint (ruff)
         run: |
@@ -78,7 +79,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          if [ -f dev-requirements.txt ]; then pip install -r dev-requirements.txt; fi
+          if [ -f dev-requirements.txt ]; then
+            pip install -r dev-requirements.txt
+          fi
 
       - name: Wait for PostgreSQL
         run: |
@@ -89,7 +92,13 @@ jobs:
             deadline = time.time() + 60
             while time.time() < deadline:
                 try:
-                    conn = psycopg2.connect(host="db", port=5432, dbname="geofence", user="geofence", password="geofence")
+                    conn = psycopg2.connect(
+                        host="db",
+                        port=5432,
+                        dbname="geofence",
+                        user="geofence",
+                        password="geofence",
+                    )
                     conn.close()
                     print("postgres ready")
                     break
@@ -106,18 +115,23 @@ jobs:
 
       - name: Start API (background)
         run: |
-          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 &>/tmp/uvicorn.log &
+          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 \
+            &>/tmp/uvicorn.log &
           echo "Waiting for API /healthz to return 200..."
           for i in $(seq 1 60); do
-            if curl --fail --silent http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+            if curl --fail --silent \
+               http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
               echo "API is up"
               break
             fi
             echo "waiting for api... ($i)"
             sleep 1
           done
-          if ! curl --fail --silent http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
-            echo "API failed to start, printing uvicorn log:"; tail -n +1 /tmp/uvicorn.log; exit 1
+          if ! curl --fail --silent \
+             http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+            echo "API failed to start, printing uvicorn log:"
+            tail -n +1 /tmp/uvicorn.log
+            exit 1
           fi
 
       - name: Run E2E tests
