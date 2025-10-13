@@ -83,22 +83,22 @@ jobs:
       - name: Wait for PostgreSQL
         run: |
           python - <<PY
-import time
-import psycopg2
-from psycopg2 import OperationalError
-deadline = time.time() + 60
-while time.time() < deadline:
-    try:
-        conn = psycopg2.connect(host="db", port=5432, dbname="geofence", user="geofence", password="geofence")
-        conn.close()
-        print("postgres ready")
-        break
-    except OperationalError:
-        print("waiting for postgres...")
-        time.sleep(1)
-else:
-    raise SystemExit("Postgres not ready in time")
-PY
+            import time
+            import psycopg2
+            from psycopg2 import OperationalError
+            deadline = time.time() + 60
+            while time.time() < deadline:
+                try:
+                    conn = psycopg2.connect(host="db", port=5432, dbname="geofence", user="geofence", password="geofence")
+                    conn.close()
+                    print("postgres ready")
+                    break
+                except OperationalError:
+                    print("waiting for postgres...")
+                    time.sleep(1)
+            else:
+                raise SystemExit("Postgres not ready in time")
+          PY
 
       - name: Run migrations
         run: |
