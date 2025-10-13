@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual envs
+.venv/
+env/
+venv/
+
+# Local env file
+.env
+.env.*.local
+
+# pytest cache
+.pytest_cache/
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+
+# Docker Compose volumes
+docker-compose.override.yml
+
+# Misc
+*.log
