@@ -59,7 +59,8 @@ def run_task(task_id: int, payload: TaskRunRequest, db: Session = Depends(get_db
         "allowed": bool(within),
     }
     res = db.execute(insert_sql, params)
-    inserted_id = res.scalar_one()
+    # consume the returned id to ensure the INSERT executed successfully
+    res.scalar_one()
     db.commit()
 
     return TaskRunOut(allowed=bool(within), distance_m=distance)

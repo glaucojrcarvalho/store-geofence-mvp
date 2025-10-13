@@ -66,11 +66,10 @@ def test_end_to_end_flow():
     assert r.status_code == 200, r.text
     task_id = r.json()["id"]
 
-    # Run the task using the demo token header (no JWT required)
-    demo_token = "mydemo"
-    r = httpx.post(f"{API_URL}/tasks/{task_id}/run", json={"lat": lat, "lng": lng}, headers={"X-Demo-Token": demo_token}, timeout=10)
+    # Run the task using the previously created JWT (Authorization header)
+    # Using the JWT keeps this test independent from external DEMO_TOKEN env configuration.
+    r = httpx.post(f"{API_URL}/tasks/{task_id}/run", json={"lat": lat, "lng": lng}, headers=headers, timeout=10)
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["allowed"] is True
     assert body["distance_m"] >= 0
-

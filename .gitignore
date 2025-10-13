@@ -17,6 +17,9 @@ venv/
 # pytest cache
 .pytest_cache/
 
+# ruff cache
+.ruff_cache/
+
 # IDE/editor
 .vscode/
 .idea/
