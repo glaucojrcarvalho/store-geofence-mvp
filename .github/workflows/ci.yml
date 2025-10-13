@@ -8,7 +8,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}
-      RUFF_CACHE_DIR: ${{ runner.temp }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +26,8 @@ jobs:
 
       - name: Lint (ruff)
         run: |
+          # use runner-provided temp directory for ruff cache to avoid workspace permission issues
+          export RUFF_CACHE_DIR="$RUNNER_TEMP"
           ruff --version
           ruff check app
 
@@ -41,8 +42,6 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     needs: build-and-test
-    env:
-      PYTHONPATH: ${{ github.workspace }}
     services:
       db:
         image: postgis/postgis:15-3.4
@@ -63,6 +62,7 @@ jobs:
           - 6379:6379
 
     env:
+      PYTHONPATH: ${{ github.workspace }}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       POSTGRES_DB: geofence
@@ -71,7 +71,6 @@ jobs:
       REDIS_URL: redis://redis:6379/0
       DEMO_TOKEN: ${{ secrets.DEMO_TOKEN }}
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
-      RUFF_CACHE_DIR: ${{ runner.temp }}
 
     steps:
       - uses: actions/checkout@v4
