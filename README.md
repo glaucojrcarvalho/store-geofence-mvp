@@ -1,8 +1,8 @@
 # Store Geofence — FastAPI + Celery + PostGIS
 
 <p align="left">
-  <a href="https://github.com/glaucojrcarvalho/store-geofence/actions">
-    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/glaucojrcarvalho/store-geofence/ci.yml?branch=main">
+  <a href="https://github.com/glaucojrcarvalho/store-geofence-mvp/actions">
+    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/glaucojrcarvalho/store-geofence-mvp/ci.yml?branch=main">
   </a>
   <a href="#license">
     <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green.svg">
@@ -104,6 +104,24 @@ docker compose run --rm api pytest -q
 ```
 
 CI checks (GitHub Actions) include linting (ruff), tests, and a Docker build validation.
+
+### CI / GitHub Actions
+The repository runs a `CI` workflow (see `.github/workflows/ci.yml`) which executes linting, unit tests and an end-to-end job that starts PostGIS and Redis as services and runs the application inside the runner.
+
+Required repository secrets for the e2e job (add these in GitHub → Settings → Secrets and Variables → Actions):
+- `SECRET_KEY` — application secret used to sign JWTs (use a long random string)
+- `DEMO_TOKEN` — demo token used by tests (you can set this to an arbitrary long string)
+
+How to re-run the workflow:
+- Use the GitHub Actions UI: open the workflow run and click "Re-run jobs".
+- Or push an empty commit locally and push to `main` to trigger the workflow:
+
+```bash
+git commit --allow-empty -m "ci: rerun workflow"
+git push origin main
+```
+
+If you want to reproduce the e2e flow locally (recommended before pushing), see `scripts/run_e2e_local.sh` which wraps `docker compose` + migrations + tests.
 
 ---
 
