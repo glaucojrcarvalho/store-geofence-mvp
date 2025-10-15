@@ -7,16 +7,64 @@ from app.core.config import settings
 # By default run the tests against the ASGI app in-process (avoids starting uvicorn in CI).
 USE_EXTERNAL_API = os.getenv("USE_EXTERNAL_API", "false").lower() in ("1", "true", "yes")
 
+# When running in-process, ensure migrations are applied before importing the app
+if not USE_EXTERNAL_API:
+    # attempt to run alembic upgrade head programmatically (harmless if already applied)
+    try:
+        from alembic.config import Config
+        from alembic import command
+        cfg = Config(os.path.join(os.path.dirname(__file__), '..', 'alembic.ini'))
+        cfg.set_main_option('sqlalchemy.url', settings.DATABASE_URL)
+        command.upgrade(cfg, 'head')
+    except Exception:
+        # if alembic is not available or fails, we'll still attempt to wait for migrations below
+        pass
+
+# If running in-process, wait for DB and migrations to be applied (companies table exists)
+if not USE_EXTERNAL_API:
+    deadline = time.time() + int(os.getenv("E2E_DB_WAIT", "120"))
+    while time.time() < deadline:
+        try:
+            conn = psycopg2.connect(
+                host=settings.POSTGRES_HOST,
+                port=settings.POSTGRES_PORT,
+                dbname=settings.POSTGRES_DB,
+                user=settings.POSTGRES_USER,
+                password=settings.POSTGRES_PASSWORD,
+            )
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT to_regclass('public.companies')")
+                res = cur.fetchone()[0]
+                if res is not None:
+                    # migrations applied
+                    cur.close()
+                    conn.close()
+                    break
+            except Exception:
+                pass
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        time.sleep(1)
+    else:
+        raise RuntimeError("Database not ready or migrations not applied in time")
+
 if USE_EXTERNAL_API:
     API_URL = "http://127.0.0.1:8000"
     def make_client():
         return httpx.Client()
 else:
-    # use the ASGI app directly (httpx supports ASGI apps)
+    # use FastAPI's TestClient for in-process testing (stable wrapper around ASGI)
+    from fastapi.testclient import TestClient
     from app.main import app as asgi_app
     API_URL = "http://testserver"
     def make_client():
-        return httpx.Client(app=asgi_app, base_url=API_URL)
+        return TestClient(asgi_app)
 
 
 def wait_for_api(timeout=5):

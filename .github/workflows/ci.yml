@@ -63,13 +63,14 @@ jobs:
 
     env:
       PYTHONPATH: ${{ github.workspace }}
-      # Runner processes should connect to services via localhost/127.0.0.1
-      POSTGRES_HOST: 127.0.0.1
+      # Run tests in-process by default to avoid needing external uvicorn
+      USE_EXTERNAL_API: 'false'
+      POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       POSTGRES_DB: geofence
       POSTGRES_USER: geofence
       POSTGRES_PASSWORD: geofence
-      REDIS_URL: redis://127.0.0.1:6379/0
+      REDIS_URL: redis://redis:6379/0
       DEMO_TOKEN: ${{ secrets.DEMO_TOKEN }}
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
@@ -99,7 +100,7 @@ jobs:
             while time.time() < deadline:
                 try:
                     conn = psycopg2.connect(
-                        host="127.0.0.1",
+                        host="db",
                         port=5432,
                         dbname="geofence",
                         user="geofence",
@@ -134,55 +135,31 @@ jobs:
             exit 1
           fi
 
-      - name: Start API and run E2E tests (single step)
+      - name: Verify DB schema (debug)
         run: |
-          set -euo pipefail
-          # start uvicorn in background and capture logs
-          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 &>/tmp/uvicorn.log &
-          UVICORN_PID=$!
-          echo "started uvicorn pid=$UVICORN_PID"
+          python - <<PY
+import psycopg2, os
+from psycopg2.extras import RealDictCursor
+host=os.getenv('POSTGRES_HOST','db')
+port=int(os.getenv('POSTGRES_PORT',5432))
+conn=psycopg2.connect(host=host,port=port,dbname=os.getenv('POSTGRES_DB'),user=os.getenv('POSTGRES_USER'),password=os.getenv('POSTGRES_PASSWORD'))
+cur=conn.cursor(cursor_factory=RealDictCursor)
+cur.execute("SELECT to_regclass('public.companies') AS companies_regclass")
+print('companies table:', cur.fetchone())
+cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
+print('public tables:')
+for r in cur.fetchall():
+    print(' -', r['table_name'])
+conn.close()
+PY
 
-          # stream the log in background so Actions captures it
-          (tail -n +1 -f /tmp/uvicorn.log) &
-          TAIL_PID=$!
+      - name: Run E2E tests (in-process)
+        run: |
+          # Run endpoint tests in-process via httpx ASGI client to avoid external server startup flakiness
+          pytest tests/test_e2e.py -q
 
-          echo "Waiting for API /healthz to return 200..."
-          for i in $(seq 1 180); do
-            if curl --fail --silent http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
-              echo "API is up"
-              break
-            fi
-            echo "waiting for api... ($i)"
-            sleep 1
-          done
-
-          if ! curl --fail --silent http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
-            echo "API failed to start, printing uvicorn log:"
-            tail -n +1 /tmp/uvicorn.log || true
-            ps aux || true
-            kill $TAIL_PID || true
-            exit 1
-          fi
-
-          echo "Running e2e tests"
-          pytest tests/test_e2e.py -q || TEST_RESULT=$?
-          RET=${TEST_RESULT:-0}
-
-          echo "--- uvicorn log tail ---"
-          tail -n 200 /tmp/uvicorn.log || true
-
-          # cleanup background tail
-          kill $TAIL_PID || true
-          # kill uvicorn process
-          kill $UVICORN_PID || true
-
-          if [ "$RET" -ne 0 ]; then
-            echo "e2e tests failed with exit code $RET"
-            exit $RET
-          fi
-
-      - name: Print uvicorn log after tests
+      - name: Print uvicorn log (if any)
         if: always()
         run: |
-          echo "--- uvicorn log tail (final) ---"
-          tail -n 400 /tmp/uvicorn.log || true
+          echo "--- uvicorn log (if present) ---"
+          [ -f /tmp/uvicorn.log ] && tail -n 400 /tmp/uvicorn.log || true
