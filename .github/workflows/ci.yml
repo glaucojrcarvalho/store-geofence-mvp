@@ -63,12 +63,13 @@ jobs:
 
     env:
       PYTHONPATH: ${{ github.workspace }}
-      POSTGRES_HOST: db
+      # Runner processes should connect to services via localhost/127.0.0.1
+      POSTGRES_HOST: 127.0.0.1
       POSTGRES_PORT: 5432
       POSTGRES_DB: geofence
       POSTGRES_USER: geofence
       POSTGRES_PASSWORD: geofence
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://127.0.0.1:6379/0
       DEMO_TOKEN: ${{ secrets.DEMO_TOKEN }}
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
@@ -94,11 +95,11 @@ jobs:
             import time
             import psycopg2
             from psycopg2 import OperationalError
-            deadline = time.time() + 60
+            deadline = time.time() + 120
             while time.time() < deadline:
                 try:
                     conn = psycopg2.connect(
-                        host="db",
+                        host="127.0.0.1",
                         port=5432,
                         dbname="geofence",
                         user="geofence",
@@ -107,38 +108,81 @@ jobs:
                     conn.close()
                     print("postgres ready")
                     break
-                except OperationalError:
-                    print("waiting for postgres...")
-                    time.sleep(1)
+                except OperationalError as e:
+                    print("waiting for postgres...", e)
+                    time.sleep(2)
             else:
                 raise SystemExit("Postgres not ready in time")
           PY
 
-      - name: Run migrations
+      - name: Run migrations (retry)
         run: |
-          alembic upgrade head
+          set -euo pipefail
+          n=0
+          until [ $n -ge 5 ]; do
+            echo "alembic attempt $((n+1))"
+            if alembic upgrade head; then
+              echo "alembic succeeded"
+              break
+            fi
+            n=$((n+1))
+            echo "alembic failed, sleeping before retry"
+            sleep 5
+          done
+          if [ $n -ge 5 ]; then
+            echo "alembic failed after retries"
+            exit 1
+          fi
 
-      - name: Start API (background)
+      - name: Start API and run E2E tests (single step)
         run: |
-          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 \
-            &>/tmp/uvicorn.log &
+          set -euo pipefail
+          # start uvicorn in background and capture logs
+          nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 &>/tmp/uvicorn.log &
+          UVICORN_PID=$!
+          echo "started uvicorn pid=$UVICORN_PID"
+
+          # stream the log in background so Actions captures it
+          (tail -n +1 -f /tmp/uvicorn.log) &
+          TAIL_PID=$!
+
           echo "Waiting for API /healthz to return 200..."
-          for i in $(seq 1 120); do
-            if curl --fail --silent \
-               http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+          for i in $(seq 1 180); do
+            if curl --fail --silent http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
               echo "API is up"
               break
             fi
             echo "waiting for api... ($i)"
             sleep 1
           done
-          if ! curl --fail --silent \
-             http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+
+          if ! curl --fail --silent http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
             echo "API failed to start, printing uvicorn log:"
-            tail -n +1 /tmp/uvicorn.log
+            tail -n +1 /tmp/uvicorn.log || true
+            ps aux || true
+            kill $TAIL_PID || true
             exit 1
           fi
 
-      - name: Run E2E tests
+          echo "Running e2e tests"
+          pytest tests/test_e2e.py -q || TEST_RESULT=$?
+          RET=${TEST_RESULT:-0}
+
+          echo "--- uvicorn log tail ---"
+          tail -n 200 /tmp/uvicorn.log || true
+
+          # cleanup background tail
+          kill $TAIL_PID || true
+          # kill uvicorn process
+          kill $UVICORN_PID || true
+
+          if [ "$RET" -ne 0 ]; then
+            echo "e2e tests failed with exit code $RET"
+            exit $RET
+          fi
+
+      - name: Print uvicorn log after tests
+        if: always()
         run: |
-          pytest tests/test_e2e.py -q
+          echo "--- uvicorn log tail (final) ---"
+          tail -n 400 /tmp/uvicorn.log || true
