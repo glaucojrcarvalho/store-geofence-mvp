@@ -138,20 +138,20 @@ jobs:
       - name: Verify DB schema (debug)
         run: |
           python - <<PY
-import psycopg2, os
-from psycopg2.extras import RealDictCursor
-host=os.getenv('POSTGRES_HOST','db')
-port=int(os.getenv('POSTGRES_PORT',5432))
-conn=psycopg2.connect(host=host,port=port,dbname=os.getenv('POSTGRES_DB'),user=os.getenv('POSTGRES_USER'),password=os.getenv('POSTGRES_PASSWORD'))
-cur=conn.cursor(cursor_factory=RealDictCursor)
-cur.execute("SELECT to_regclass('public.companies') AS companies_regclass")
-print('companies table:', cur.fetchone())
-cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
-print('public tables:')
-for r in cur.fetchall():
-    print(' -', r['table_name'])
-conn.close()
-PY
+            import psycopg2, os
+            from psycopg2.extras import RealDictCursor
+            host=os.getenv('POSTGRES_HOST','db')
+            port=int(os.getenv('POSTGRES_PORT',5432))
+            conn=psycopg2.connect(host=host,port=port,dbname=os.getenv('POSTGRES_DB'),user=os.getenv('POSTGRES_USER'),password=os.getenv('POSTGRES_PASSWORD'))
+            cur=conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT to_regclass('public.companies') AS companies_regclass")
+            print('companies table:', cur.fetchone())
+            cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
+            print('public tables:')
+            for r in cur.fetchall():
+                print(' -', r['table_name'])
+            conn.close()
+          PY
 
       - name: Run E2E tests (in-process)
         run: |
