@@ -3,10 +3,11 @@ import httpx
 import psycopg2
 from app.core.config import settings
 
-API_URL = "http://localhost:8000"
+# Use explicit loopback IP to avoid DNS resolution issues in CI
+API_URL = "http://127.0.0.1:8000"
 
 
-def wait_for_api(timeout=60):
+def wait_for_api(timeout=120):
     client = httpx.Client()
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -21,7 +22,7 @@ def wait_for_api(timeout=60):
 
 
 def db_connect():
-    # Use settings but assume CI will set POSTGRES_HOST=localhost for runner tests
+    # Use settings; in CI POSTGRES_HOST is set to 'db'
     return psycopg2.connect(
         host=settings.POSTGRES_HOST,
         port=settings.POSTGRES_PORT,
@@ -33,7 +34,7 @@ def db_connect():
 
 def test_end_to_end_flow():
     # Wait for API
-    wait_for_api(timeout=60)
+    wait_for_api(timeout=120)
 
     # Login as admin to get JWT
     r = httpx.post(f"{API_URL}/auth/login", json={"email": "admin@example.com", "role": "admin"}, timeout=10)
