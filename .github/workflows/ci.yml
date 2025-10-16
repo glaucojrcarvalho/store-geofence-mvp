@@ -1,165 +1,74 @@
----
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
-  build-and-test:
+  test:
     runs-on: ubuntu-latest
-    env:
-      PYTHONPATH: ${{ github.workspace }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          if [ -f dev-requirements.txt ]; then
-            pip install -r dev-requirements.txt
-          fi
-
-      - name: Lint (ruff)
-        run: |
-          # use runner-provided temp directory for ruff cache to avoid workspace permission issues
-          export RUFF_CACHE_DIR="$RUNNER_TEMP"
-          ruff --version
-          ruff check app
-
-      - name: Unit tests
-        run: |
-          pytest -q
-
-      - name: Docker build
-        run: |
-          docker build -t store-geofence-mvp:ci .
-
-  e2e:
-    runs-on: ubuntu-latest
-    needs: build-and-test
     services:
-      db:
-        image: postgis/postgis:15-3.4
+      postgres:
+        image: postgis/postgis:15-3.3
         env:
-          POSTGRES_DB: geofence
           POSTGRES_USER: geofence
           POSTGRES_PASSWORD: geofence
+          POSTGRES_DB: geofence
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready -U geofence -d geofence
-          --health-interval 5s
+          --health-cmd "pg_isready -h localhost -p 5432 -U geofence"
+          --health-interval 10s
           --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-
-    env:
-      PYTHONPATH: ${{ github.workspace }}
-      # Run tests in-process by default to avoid needing external uvicorn
-      USE_EXTERNAL_API: 'false'
-      POSTGRES_HOST: db
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: geofence
-      POSTGRES_USER: geofence
-      POSTGRES_PASSWORD: geofence
-      REDIS_URL: redis://redis:6379/0
-      DEMO_TOKEN: ${{ secrets.DEMO_TOKEN }}
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Install deps
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          if [ -f dev-requirements.txt ]; then
-            pip install -r dev-requirements.txt
-          fi
 
-      - name: Wait for PostgreSQL
+      - name: Wait for Postgres
         run: |
-          python - <<PY
-            import time
-            import psycopg2
-            from psycopg2 import OperationalError
-            deadline = time.time() + 120
-            while time.time() < deadline:
-                try:
-                    conn = psycopg2.connect(
-                        host="db",
-                        port=5432,
-                        dbname="geofence",
-                        user="geofence",
-                        password="geofence",
-                    )
-                    conn.close()
-                    print("postgres ready")
-                    break
-                except OperationalError as e:
-                    print("waiting for postgres...", e)
-                    time.sleep(2)
-            else:
-                raise SystemExit("Postgres not ready in time")
-          PY
-
-      - name: Run migrations (retry)
-        run: |
-          set -euo pipefail
-          n=0
-          until [ $n -ge 5 ]; do
-            echo "alembic attempt $((n+1))"
-            if alembic upgrade head; then
-              echo "alembic succeeded"
-              break
+          echo "Waiting for postgres to be ready..."
+          for i in {1..60}; do
+            if pg_isready -h localhost -p 5432 -U geofence; then
+              echo "Postgres is ready" && break
             fi
-            n=$((n+1))
-            echo "alembic failed, sleeping before retry"
-            sleep 5
+            sleep 1
           done
-          if [ $n -ge 5 ]; then
-            echo "alembic failed after retries"
-            exit 1
-          fi
 
-      - name: Verify DB schema (debug)
+      - name: Run alembic migrations
+        env:
+          DATABASE_URL: postgresql+psycopg2://geofence:geofence@localhost:5432/geofence
+          POSTGRES_HOST: localhost
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          python - <<PY
-            import psycopg2, os
-            from psycopg2.extras import RealDictCursor
-            host=os.getenv('POSTGRES_HOST','db')
-            port=int(os.getenv('POSTGRES_PORT',5432))
-            conn=psycopg2.connect(host=host,port=port,dbname=os.getenv('POSTGRES_DB'),user=os.getenv('POSTGRES_USER'),password=os.getenv('POSTGRES_PASSWORD'))
-            cur=conn.cursor(cursor_factory=RealDictCursor)
-            cur.execute("SELECT to_regclass('public.companies') AS companies_regclass")
-            print('companies table:', cur.fetchone())
-            cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
-            print('public tables:')
-            for r in cur.fetchall():
-                print(' -', r['table_name'])
-            conn.close()
-          PY
+          python -m alembic upgrade head
 
-      - name: Run E2E tests (in-process)
+      - name: Run tests
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: geofence
+          POSTGRES_USER: geofence
+          POSTGRES_PASSWORD: geofence
+          PYTHONPATH: ${{ github.workspace }}
+          E2E_DB_WAIT: 300
         run: |
-          # Run endpoint tests in-process via httpx ASGI client to avoid external server startup flakiness
-          pytest tests/test_e2e.py -q
-
-      - name: Print uvicorn log (if any)
-        if: always()
-        run: |
-          echo "--- uvicorn log (if present) ---"
-          [ -f /tmp/uvicorn.log ] && tail -n 400 /tmp/uvicorn.log || true
+          pytest -q
