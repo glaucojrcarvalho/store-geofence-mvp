@@ -2,6 +2,7 @@ import os
 import time
 import httpx
 import psycopg2
+import uuid
 from app.core.config import settings
 
 # By default run the tests against the ASGI app in-process (avoids starting uvicorn in CI).
@@ -61,7 +62,9 @@ def test_end_to_end_flow():
         headers = {"Authorization": f"Bearer {token}"}
 
         # Create a company
-        r = client.post(f"{API_URL}/companies", json={"name": "E2E Co", "geofence_radius_m": 100}, headers=headers, timeout=10)
+        # Use a unique company name to avoid conflicts with existing data
+        company_name = f"E2E Co {uuid.uuid4().hex[:8]}"
+        r = client.post(f"{API_URL}/companies", json={"name": company_name, "geofence_radius_m": 100}, headers=headers, timeout=10)
         assert r.status_code == 200, r.text
         company_id = r.json()["id"]
 
