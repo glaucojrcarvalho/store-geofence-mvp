@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Literal
 
 
@@ -18,8 +18,7 @@ class CompanyOut(BaseModel):
     id: int
     name: str
     geofence_radius_m: int
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CompanyUpdate(BaseModel):
     geofence_radius_m: int
@@ -39,8 +38,7 @@ class StoreOut(BaseModel):
     name: str
     geocode_status: str
     custom_radius_m: Optional[int] = None
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TaskCreate(BaseModel):
     store_id: int
@@ -53,8 +51,7 @@ class TaskOut(BaseModel):
     title: str
     description: Optional[str] = None
     active: bool
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TaskRunRequest(BaseModel):
     lat: float
