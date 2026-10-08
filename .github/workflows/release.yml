@@ -3,6 +3,12 @@ name: Deploy Published Release to Vercel
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing published stable GitHub release tag to redeploy"
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -14,7 +20,9 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ github.event.release.draft == false && github.event.release.prerelease == false }}
+    if: >-
+      ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'release' && github.event.release.draft == false && github.event.release.prerelease == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -27,19 +35,30 @@ jobs:
       - name: Check out exactly the published release tag
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
           persist-credentials: false
           fetch-depth: 0
 
       - name: Verify version tag and main ancestry
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version tag required"; exit 1; }
           git fetch --quiet origin main
           git merge-base --is-ancestor HEAD origin/main || { echo "Release commit is not on main"; exit 1; }
           echo "Releasing tested commit $(git rev-parse HEAD)"
+
+      - name: Verify tag belongs to an existing published stable GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --repo "$GH_REPO" --json tagName,isDraft,isPrerelease \
+            | jq -e --arg expected "$RELEASE_TAG" '.tagName == $expected and (.isDraft == false) and (.isPrerelease == false)' >/dev/null ||
+            { echo "Tag must be an existing published stable GitHub release"; exit 1; }
 
       - name: Verify CI passed for the exact release commit
         env:
@@ -76,7 +95,6 @@ jobs:
         run: npm install --global "vercel@${VERCEL_CLI_VERSION}"
 
       - name: Pull the authorized production project settings
-        working-directory: public-demo
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
@@ -85,13 +103,21 @@ jobs:
           vercel pull --yes --environment=production
 
       - name: Build the release without uploading repository source
-        working-directory: public-demo
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel build --prod
 
+      - name: Verify static build output
+        run: |
+          set -euo pipefail
+          test -f .vercel/output/config.json || { echo "Vercel output config missing"; exit 1; }
+          test -f .vercel/output/static/index.html || { echo "Built demo index missing"; exit 1; }
+          test -f .vercel/output/static/app.js || { echo "Built demo JS missing"; exit 1; }
+          test -f .vercel/output/static/styles.css || { echo "Built demo CSS missing"; exit 1; }
+          test ! -d .vercel/output/functions || { echo "Unexpected serverless functions in static demo"; exit 1; }
+          test ! -d .vercel/output/services || { echo "Unexpected services in static demo"; exit 1; }
+
       - name: Deploy only the prebuilt release artifact
-        working-directory: public-demo
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel deploy --prebuilt --prod
