@@ -76,7 +76,6 @@ jobs:
         run: npm install --global "vercel@${VERCEL_CLI_VERSION}"
 
       - name: Pull the authorized production project settings
-        working-directory: public-demo
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
@@ -85,13 +84,21 @@ jobs:
           vercel pull --yes --environment=production
 
       - name: Build the release without uploading repository source
-        working-directory: public-demo
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel build --prod
 
+      - name: Verify static build output
+        run: |
+          set -euo pipefail
+          test -f .vercel/output/config.json || { echo "Vercel output config missing"; exit 1; }
+          test -f .vercel/output/static/index.html || { echo "Built demo index missing"; exit 1; }
+          test -f .vercel/output/static/app.js || { echo "Built demo JS missing"; exit 1; }
+          test -f .vercel/output/static/styles.css || { echo "Built demo CSS missing"; exit 1; }
+          test ! -d .vercel/output/functions || { echo "Unexpected serverless functions in static demo"; exit 1; }
+          test ! -d .vercel/output/services || { echo "Unexpected services in static demo"; exit 1; }
+
       - name: Deploy only the prebuilt release artifact
-        working-directory: public-demo
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel deploy --prebuilt --prod
