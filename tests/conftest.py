@@ -76,7 +76,7 @@ def e2e_db_ready():
 
     # Print environment for debugging in CI logs
     print("[e2e_db_ready] Using DB host from settings.POSTGRES_HOST:", settings.POSTGRES_HOST)
-    print("[e2e_db_ready] DATABASE_URL:", getattr(settings, 'DATABASE_URL', None))
+    # Never print connection URLs or passwords in CI logs.
 
     # Try to run alembic programmatically; ignore non-fatal failures and continue to polling
     try:
