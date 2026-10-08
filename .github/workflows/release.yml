@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release view "$RELEASE_TAG" --repo "$GH_REPO" --json tagName,isDraft,isPrerelease \
-            --jq 'select(.isDraft == false and .isPrerelease == false)' >/dev/null ||
+            | jq -e --arg expected "$RELEASE_TAG" '.tagName == $expected and (.isDraft == false) and (.isPrerelease == false)' >/dev/null ||
             { echo "Tag must be an existing published stable GitHub release"; exit 1; }
 
       - name: Verify CI passed for the exact release commit
