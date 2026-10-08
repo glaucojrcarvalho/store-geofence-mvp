@@ -54,3 +54,16 @@ Vercel Deploy Hooks are **not used**: their branch-oriented behavior
 could deploy a newer commit than the selected release. The workflow
 deploys the immutable release tag via the CLI instead.
 
+
+### GitHub Actions CLI working directory
+
+The Vercel project has **Root Directory = `public-demo`** configured in Vercel.
+The GitHub Actions workflow must call `vercel pull`, `vercel build --prod`,
+and `vercel deploy --prebuilt --prod` from the **repository root**, not from
+`public-demo/`. Running from `public-demo/` applies the root directory twice
+and fails with `.../public-demo/public-demo does not exist`.
+
+Before uploading, CI checks that `.vercel/output/static/` contains the HTML,
+CSS, and JS assets and that no serverless functions or services were built.
+If the static-only guard fails, do not remove it just to ship: inspect Vercel's
+framework and root-directory settings and repair the output configuration.
