@@ -21,3 +21,36 @@ Rollback to the previous verified static deployment. The UI has no database
 migrations and does not handle or retain personal data.
 
 See ../docs/production-demo.md for backend security-release gates.
+
+## Release-only deployment on Vercel
+
+This repository deliberately disables automatic Git deployments with
+`git.deploymentEnabled: false` in `public-demo/vercel.json`.
+
+The `.github/workflows/release.yml` workflow deploys **only when a
+non-prerelease GitHub Release with a version tag is published**, and checks
+out that exact tag, verifies it came from main, confirms successful CI
+for its commit and reruns static isolation tests. It then builds and
+uploads only `public-demo/` with the pinned Vercel CLI.
+
+### One-time bootstrap
+
+1. Create/import the Vercel project with Root Directory `public-demo`
+   and Framework Preset **Other**. An initial manual deployment through
+   the Vercel UI is acceptable for project creation.
+2. Configure the GitHub repo Variables `VERCEL_ORG_ID` and
+   `VERCEL_PROJECT_ID` with your own Vercel account/project IDs.
+3. Configure `VERCEL_TOKEN` as a masked GitHub Actions repository or
+   production-environment **secret** (never commit or paste it into chat).
+4. Protect the GitHub `production` environment with required reviewers,
+   and restrict deployments to approved refs when your plan supports it.
+5. Merge the release-only configuration after the initial project is
+   created. Future commits to `main` will not deploy to Vercel.
+6. Publish a **new GitHub release** (e.g. `v0.2.1`) pointing to the
+   reviewed green `main` commit. The release event triggers deployment.
+   An already-published `v0.2.0` does not trigger again retroactively.
+
+Vercel Deploy Hooks are **not used**: their branch-oriented behavior
+could deploy a newer commit than the selected release. The workflow
+deploys the immutable release tag via the CLI instead.
+
