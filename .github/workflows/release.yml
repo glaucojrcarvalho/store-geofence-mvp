@@ -3,6 +3,12 @@ name: Deploy Published Release to Vercel
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing published stable GitHub release tag to redeploy"
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -14,7 +20,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ github.event.release.draft == false && github.event.release.prerelease == false }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.release.draft == false && github.event.release.prerelease == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -27,19 +33,30 @@ jobs:
       - name: Check out exactly the published release tag
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
           persist-credentials: false
           fetch-depth: 0
 
       - name: Verify version tag and main ancestry
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version tag required"; exit 1; }
           git fetch --quiet origin main
           git merge-base --is-ancestor HEAD origin/main || { echo "Release commit is not on main"; exit 1; }
           echo "Releasing tested commit $(git rev-parse HEAD)"
+
+      - name: Verify tag belongs to an existing published stable GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --repo "$GH_REPO" --json tagName,isDraft,isPrerelease \
+            --jq 'select(.isDraft == false and .isPrerelease == false)' >/dev/null ||
+            { echo "Tag must be an existing published stable GitHub release"; exit 1; }
 
       - name: Verify CI passed for the exact release commit
         env:
