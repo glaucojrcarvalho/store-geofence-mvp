@@ -116,7 +116,7 @@ def test_public_production_does_not_mount_business_api():
 
 
 def test_prod_refuses_default_secrets():
-    env = dict(os.environ, APP_ENV="prod", SECRET_KEY="changeme", POSTGRES_PASSWORD="geofence")
+    env = dict(os.environ, APP_ENV="prod", SECRET_KEY="changeme", POSTGRES_PASSWORD="geofence", ENABLE_PRIVATE_API="false")
     result = subprocess.run([sys.executable, "-c", "from app.core.config import settings"],
                             env=env, capture_output=True, text=True, timeout=30)
     assert result.returncode != 0
