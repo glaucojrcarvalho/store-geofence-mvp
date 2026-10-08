@@ -30,3 +30,4 @@ def test_vercel_headers_block_network_upload_and_inline_script():
     assert "script-src 'self'" in headers["Content-Security-Policy"]
     assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
     assert "geolocation=()" in headers["Permissions-Policy"]
+    assert config["git"]["deploymentEnabled"] is False

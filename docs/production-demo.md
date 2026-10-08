@@ -1,26 +1,23 @@
-## Public static showcase (GitHub Pages / Vercel)
+## Public static showcase — Vercel release-only deployment
 
-For a production portfolio URL without a hosted Redis service, deploy **only**
-the contents of `public-demo/`. This is a wholly separate static Haversine
-demonstration with browser-only computation, not a deployed FastAPI endpoint.
-It has no backend, data store, external geocoding, location upload, or billing.
+The public site is the standalone, stateless `public-demo/` folder,
+using browser-side Haversine calculation and synthetic data only.
+**It is not the database-backed FastAPI/PostGIS service.**
 
-- **Preferred automated publication:** `.github/workflows/pages.yml`
-  builds and deploys solely `public-demo/` on `main` after its contract tests
-  pass. If the GitHub Pages site has never been enabled, a repository administrator
-  must visit **Settings → Pages → Build and deployment → Source: GitHub Actions**
-  once, then rerun **Publish Public Geofence Demo**.
-- **Alternative:** on Vercel create a new Git-linked project with Root Directory
-  `public-demo`, Framework Preset **Other**, no build command or environment
-  secrets. Use a Vercel team authorized for project creation.
-- The HTML includes a portable restrictive CSP meta tag; on Vercel additional
-  CSP, framing, HSTS and privacy response headers are in
-  `public-demo/vercel.json`. GitHub Pages does not honor `vercel.json`
-  response headers, so expect only the meta CSP there.
-- Verify the deployed document, JS/CSS loading, inside/outside examples,
-  invalid-coordinate behavior, mobile layout, keyboard navigation, and
-  source link before announcing the URL.
-- Never present the static experience as a live PostGIS or FastAPI service.
+`public-demo/vercel.json` sets `git.deploymentEnabled: false`.
+Automatic Git pushes to `main` or feature branches therefore do not
+create Vercel deployments. The GitHub Actions `release.yml` workflow
+runs only on a newly published non-prerelease GitHub release, builds the
+exact tagged commit, verifies successful CI, and deploys prebuilt static
+assets. The previous GitHub Pages push-based publisher was removed.
+
+**Bootstrap requirement:** create the Vercel project once, with
+Root Directory `public-demo` and Framework Preset Other; obtain the
+project ID and org ID for GitHub repository variables and create a
+Vercel access token as a GitHub Actions secret. These must be configured
+by the owner in the hosting dashboard. See `public-demo/README.md`
+for the complete instructions and initial deployment exception.
+
 
 # Public synthetic geofence demo — release runbook
 
