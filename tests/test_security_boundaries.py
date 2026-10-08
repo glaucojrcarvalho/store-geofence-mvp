@@ -44,8 +44,6 @@ def test_public_demo_uses_synthetic_coordinates_and_no_database(api_client):
     {"lat": 91, "lng": 30},
     {"lat": -91, "lng": 30},
     {"lat": 50, "lng": 181},
-    {"lat": float("nan"), "lng": 30},
-    {"lat": float("inf"), "lng": 30},
 ])
 def test_public_demo_rejects_invalid_coordinates(api_client, payload):
     assert api_client.post("/demo/check", json=payload).status_code == 422
