@@ -1,54 +1,97 @@
-name: Publish v0.2.0 Release
+name: Deploy Published Release to Vercel
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+  release:
+    types: [published]
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: store-geofence-vercel-production
+  cancel-in-progress: false
 
 jobs:
-  release:
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.repository.full_name == github.repository
+  deploy:
+    if: ${{ github.event.release.draft == false && github.event.release.prerelease == false }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
+    timeout-minutes: 20
+    environment: production
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_CLI_VERSION: "59.15.1"
+
     steps:
-      - name: Checkout exact CI-verified commit
-        uses: actions/checkout@v4
+      - name: Check out exactly the published release tag
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.release.tag_name }}
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Verify SHA still matches main
+      - name: Verify version tag and main ancestry
         env:
-          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version tag required"; exit 1; }
           git fetch --quiet origin main
-          test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
-          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git merge-base --is-ancestor HEAD origin/main || { echo "Release commit is not on main"; exit 1; }
+          echo "Releasing tested commit $(git rev-parse HEAD)"
 
-      - name: Publish release once
+      - name: Verify CI passed for the exact release commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          if gh release view v0.2.0 --repo "$GH_REPO" >/dev/null 2>&1; then
-            echo "Release v0.2.0 already published."
-            exit 0
-          fi
-          gh release create v0.2.0 \
-            --repo "$GH_REPO" \
-            --target "$RELEASE_SHA" \
-            --title "Store Geofence v0.2.0 — Secure Public Demo" \
-            --notes-file docs/release-notes-v0.2.0.md
+          SHA="$(git rev-parse HEAD)"
+          result="$(gh api --method GET "repos/$GH_REPO/actions/workflows/ci.yml/runs" -f "head_sha=$SHA" -f per_page=50 --jq '[.workflow_runs[] | select(.head_sha == "'$SHA'" and .conclusion == "success")] | length')"
+          test "$result" -ge 1 || { echo "No successful CI for the release commit"; exit 1; }
+
+      - name: Set up Python for independent static checks
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Test the exact released public assets
+        run: |
+          python -m pip install "pytest==8.4.2"
+          python -m pytest -q --noconftest tests/test_public_demo_static.py
+
+      - name: Verify Vercel target is explicitly configured
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_ORG_ID" || { echo "Missing VERCEL_ORG_ID repository variable"; exit 1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo "Missing VERCEL_PROJECT_ID repository variable"; exit 1; }
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global "vercel@${VERCEL_CLI_VERSION}"
+
+      - name: Pull the authorized production project settings
+        working-directory: public-demo
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN" || { echo "Missing VERCEL_TOKEN secret"; exit 1; }
+          vercel pull --yes --environment=production
+
+      - name: Build the release without uploading repository source
+        working-directory: public-demo
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod
+
+      - name: Deploy only the prebuilt release artifact
+        working-directory: public-demo
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod
