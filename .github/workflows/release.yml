@@ -32,16 +32,28 @@ jobs:
       VERCEL_CLI_VERSION: "59.15.1"
 
     steps:
+      - name: Normalize and validate release tag input
+        id: release_tag
+        env:
+          RAW_RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          # GitHub's manual text input may contain accidental whitespace.
+          TAG="$(printf '%s' "$RAW_RELEASE_TAG" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+            { echo "Expected a version tag like v0.2.1"; exit 1; }
+          printf 'value=%s\n' "$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Check out exactly the published release tag
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
+          ref: ${{ steps.release_tag.outputs.value }}
           persist-credentials: false
           fetch-depth: 0
 
       - name: Verify version tag and main ancestry
         env:
-          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.value }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version tag required"; exit 1; }
@@ -53,7 +65,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.release.tag_name }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.value }}
         run: |
           set -euo pipefail
           gh release view "$RELEASE_TAG" --repo "$GH_REPO" --json tagName,isDraft,isPrerelease \
