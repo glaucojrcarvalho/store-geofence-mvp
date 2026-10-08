@@ -101,7 +101,8 @@ def test_public_production_does_not_mount_business_api():
                SECRET_KEY="A" * 48,
                POSTGRES_PASSWORD="B" * 32,
                DEMO_TOKEN="",
-               ALLOW_INSECURE_DEV_LOGIN="false")
+               ALLOW_INSECURE_DEV_LOGIN="false",
+               ENABLE_PRIVATE_API="false")
     code = ("from app.main import app; "
             "routes={r.path for r in app.routes}; "
             "assert '/demo/check' in routes; "
