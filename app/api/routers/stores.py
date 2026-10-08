@@ -36,7 +36,7 @@ def create_store(payload: StoreCreate, db: Session = Depends(get_db)):
     return s
 
 @router.get("/{store_id}", response_model=StoreOut)
-def get_store(store_id: int, db: Session = Depends(get_db)):
+def get_store(store_id: int, db: Session = Depends(get_db), user=Depends(require_role('admin'))):
     s = db.get(Store, store_id)
     if not s:
         raise HTTPException(status_code=404, detail="Store not found")

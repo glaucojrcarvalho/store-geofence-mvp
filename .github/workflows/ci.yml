@@ -2,13 +2,21 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     services:
       postgres:
         image: postgis/postgis:15-3.3
@@ -29,38 +37,28 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+          cache: pip
 
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      - name: Install Python deps
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          if [ -f dev-requirements.txt ]; then pip install -r dev-requirements.txt; fi
+          python -m pip install -r requirements.txt -r dev-requirements.txt
+          python -m pip install pip-audit
 
-      - name: Wait for Postgres
-        run: |
-          echo "Waiting for postgres to be ready..."
-          for i in {1..60}; do
-            if pg_isready -h localhost -p 5432 -U geofence; then
-              echo "Postgres is ready" && break
-            fi
-            sleep 1
-          done
+      - name: Compile Python modules
+        run: python -m compileall -q app tests migrations
 
-      - name: Run alembic migrations
+      - name: Dependency vulnerability audit
+        run: python -m pip_audit -r requirements.txt
+
+      - name: Apply migrations
         env:
-          DATABASE_URL: postgresql+psycopg2://geofence:geofence@localhost:5432/geofence
           POSTGRES_HOST: localhost
           PYTHONPATH: ${{ github.workspace }}
-        run: |
-          python -m alembic upgrade head
+        run: python -m alembic upgrade head
 
       - name: Run tests
         env:
@@ -70,6 +68,14 @@ jobs:
           POSTGRES_USER: geofence
           POSTGRES_PASSWORD: geofence
           PYTHONPATH: ${{ github.workspace }}
-          E2E_DB_WAIT: 300
-        run: |
-          python -m pytest -q
+          E2E_DB_WAIT: 120
+          ENABLE_PRIVATE_API: "true"
+        run: python -m pytest -q
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
+        run: docker build --pull -t store-geofence-demo:ci .

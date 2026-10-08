@@ -4,6 +4,7 @@ import httpx
 import psycopg2
 import uuid
 from app.core.config import settings
+from app.core.auth import create_access_token
 
 # By default run the tests against the ASGI app in-process (avoids starting uvicorn in CI).
 USE_EXTERNAL_API = os.getenv("USE_EXTERNAL_API", "false").lower() in ("1", "true", "yes")
@@ -55,10 +56,8 @@ def test_end_to_end_flow():
 
     # Use either in-process client or external client
     with make_client() as client:
-        # Login as admin to get JWT
-        r = client.post(f"{API_URL}/auth/login", json={"email": "admin@example.com", "role": "admin"}, timeout=10)
-        assert r.status_code == 200, r.text
-        token = r.json()["access_token"]
+        # Mint the signed test token inside the trusted test process.
+        token = create_access_token("e2e-admin@example.invalid", "admin")
         headers = {"Authorization": f"Bearer {token}"}
 
         # Create a company
