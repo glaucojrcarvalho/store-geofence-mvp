@@ -75,6 +75,10 @@ the service will fail closed until its private connectivity is restored.
 
 ## Limitations / future architecture
 
+Set `ENABLE_PRIVATE_API=false` for production (it defaults to false).
+The private routes require an explicit `ENABLE_PRIVATE_API=true` in local
+and private non-production environments; production rejects it.
+
 The private business API intentionally remains a **single-tenant
 development prototype**. Its JWT issuer, ownership model, worker/job
 lifecycle, geocoding provider quotas, durable scheduling, abuse protection,
