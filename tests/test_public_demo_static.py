@@ -13,8 +13,8 @@ def test_public_demo_contains_only_explicit_static_assets():
 def test_public_demo_is_locally_computed_with_no_external_network():
     html = (ROOT / "index.html").read_text()
     js = (ROOT / "app.js").read_text()
-    assert 'src="/app.js"' in html
-    assert 'href="/styles.css"' in html
+    assert 'src="./app.js"' in html
+    assert 'href="./styles.css"' in html
     assert "haversine(" in js and "Math.asin" in js
     assert "fetch(" not in js and "XMLHttpRequest" not in js
     assert "https://" not in js and "http://" not in js
