@@ -1,3 +1,16 @@
+> **Public release boundary (v0.2 candidate):** This repository includes an isolated
+> synthetic demo designed for public hosting with `APP_ENV=prod`. That mode exposes
+> only the demo and health/documentation endpoints; it **does not expose** the
+> business, authentication, stores, task-management, or geocoding APIs.
+> The actual store/worker platform is **not production-ready**.
+> See [production demo runbook](docs/production-demo.md) and
+> [security hardening PR](https://github.com/glaucojrcarvalho/store-geofence-mvp/pull/4).
+> Do not treat client-submitted coordinates as proof of physical presence.
+>
+> Local developer-only JWT minting is disabled by default. The legacy
+> `/auth/login` route works only when `ALLOW_INSECURE_DEV_LOGIN=true` with
+> `APP_ENV=dev` or `test`; never enable it on a public host.
+
 # Store Geofence — FastAPI + Celery + PostGIS
 
 <p align="left">
