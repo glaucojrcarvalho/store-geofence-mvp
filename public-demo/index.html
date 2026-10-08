@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Explore a geofence decision with synthetic coordinates in this interactive Store Geofence engineering demonstration.">
+  <meta name="theme-color" content="#0b1323">
+  <title>Store Geofence — Interactive Engineering Demo</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="header">
+      <a class="brand" href="/" aria-label="Store Geofence home"><span class="brand-mark" aria-hidden="true">◎</span> STORE<span class="muted"> / </span>GEOFENCE</a>
+      <a class="code-link" href="https://github.com/glaucojrcarvalho/store-geofence-mvp" rel="noopener noreferrer" target="_blank">Explore source <span aria-hidden="true">↗</span></a>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="hero-heading">
+        <div class="eyebrow"><span class="status-dot"></span> INTERACTIVE ENGINEERING DEMONSTRATION <span class="vtag">v0.2</span></div>
+        <h1 id="hero-heading">Location-aware decisions.<br><span class="gradient-text">Visible by design.</span></h1>
+        <p class="lead">Explore how a geofence determines whether a reported location falls inside a defined radius. Move the coordinates, change the radius, and see the result immediately.</p>
+      </section>
+      <div class="workspace">
+        <section class="card diagram-card" aria-labelledby="viz-title">
+          <div class="section-head">
+            <div><p class="kicker">01 / LIVE SIMULATION</p><h2 id="viz-title">Geofence visualization</h2></div>
+            <span class="pill">Synthetic data</span>
+          </div>
+          <div class="viz" aria-hidden="true">
+            <div class="crosshair crosshair-x"></div>
+            <div class="crosshair crosshair-y"></div>
+            <div class="ring ring-outer"></div>
+            <div class="ring ring-main" id="ring"></div>
+            <div class="origin"><span></span></div>
+            <div class="test-point" id="point"><span></span></div>
+            <div class="origin-label">STORE CENTER</div>
+            <div class="distance-label" id="viz-distance">0 m</div>
+            <div class="viz-corner tl">50.4501°N</div>
+            <div class="viz-corner br">30.5234°E</div>
+          </div>
+          <div class="legend"><span><i class="swatch swatch-primary"></i> Allowed geofence</span><span><i class="swatch swatch-point"></i> Reported location</span></div>
+          <p class="hint">Illustrative radial view, not a geographical map. Distances use the Haversine formula; the complete backend uses PostGIS for its spatial decisions.</p>
+        </section>
+        <section class="card controls-card" aria-labelledby="controls-title">
+          <div class="section-head">
+            <div><p class="kicker">02 / TRY IT</p><h2 id="controls-title">Change the input</h2></div>
+          </div>
+          <div class="examples">
+            <button id="inside" type="button" class="preset active" aria-pressed="true">Inside perimeter <span>↗</span></button>
+            <button id="outside" type="button" class="preset" aria-pressed="false">Outside perimeter <span>↗</span></button>
+          </div>
+          <form id="sim-form">
+            <div class="two-cols">
+              <label>Latitude <input id="lat" name="lat" type="number" min="-90" max="90" step="any" required value="50.4502" inputmode="decimal"></label>
+              <label>Longitude <input id="lng" name="lng" type="number" min="-180" max="180" step="any" required value="30.5234" inputmode="decimal"></label>
+            </div>
+            <div class="slider-head"><label for="radius">Allowed radius</label><output id="radius-value" for="radius">100 m</output></div>
+            <input id="radius" name="radius" type="range" min="25" max="500" step="25" value="100">
+            <button id="evaluate" class="evaluate" type="submit">Evaluate coordinates <span aria-hidden="true">→</span></button>
+          </form>
+          <div class="result" id="result" role="status" aria-live="polite">
+            <div class="result-top"><span id="result-status" class="result-badge">INSIDE GEOFENCE</span><span class="calculation">CALCULATED LOCALLY</span></div>
+            <strong class="distance" id="distance">11.1 <small>metres</small></strong>
+            <p id="result-text">This reported location falls inside the sample store's permitted radius.</p>
+          </div>
+        </section>
+      </div>
+      <section class="foot-grid" aria-label="Engineering notes">
+        <div><span class="note-num">01</span><h3>Spatial calculation</h3><p>Great-circle distance determines if the reported coordinates are within the chosen radius.</p></div>
+        <div><span class="note-num">02</span><h3>Production boundary</h3><p>This public demo is entirely static. Administrative endpoints, PostgreSQL, Redis, and real store data are not deployed.</p></div>
+        <div><span class="note-num">03</span><h3>Trust &amp; limitations</h3><p>Coordinates are user-supplied and never verified. This example does not establish physical presence or prevent location spoofing.</p></div>
+      </section>
+      <aside class="notice"><strong>Privacy-first by construction.</strong> Coordinates are processed in your browser, never submitted to a server or stored. Demo center: 50.4501° N, 30.5234° E (illustrative Kyiv coordinate).</aside>
+    </main>
+    <footer>STORE GEOFENCE · ENGINEERING PORTFOLIO <span>FASTAPI · POSTGIS · CELERY · REDIS · DOCKER</span></footer>
+  </div>
+</body>
+</html>
