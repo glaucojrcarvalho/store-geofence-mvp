@@ -67,3 +67,15 @@ Before uploading, CI checks that `.vercel/output/static/` contains the HTML,
 CSS, and JS assets and that no serverless functions or services were built.
 If the static-only guard fails, do not remove it just to ship: inspect Vercel's
 framework and root-directory settings and repair the output configuration.
+
+### Retrying an already-published release after a CI/CD configuration fix
+
+GitHub Actions → **Deploy Published Release to Vercel** → **Run workflow**
+(select branch `main`) → set `release_tag` to the existing published stable
+release (for example `v0.2.1`). This manual replay deploys the exact
+published release commit, not whatever code currently sits at `main`.
+
+The replay checks that the tag is a stable published GitHub release, is
+contained in `main` history, has green CI at that exact SHA, passes static
+artifact tests, and produces a static-only Vercel build. It cannot deploy
+unreleased commits. Routine pushes still do not deploy to Vercel.
