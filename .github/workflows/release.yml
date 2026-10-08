@@ -20,7 +20,9 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.release.draft == false && github.event.release.prerelease == false) }}
+    if: >-
+      ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'release' && github.event.release.draft == false && github.event.release.prerelease == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
