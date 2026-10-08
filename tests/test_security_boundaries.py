@@ -104,7 +104,7 @@ def test_public_production_does_not_mount_business_api():
                ALLOW_INSECURE_DEV_LOGIN="false",
                ENABLE_PRIVATE_API="false")
     code = ("from app.main import app; "
-            "routes={r.path for r in app.routes}; "
+            "routes=set(app.openapi()['paths']); "
             "assert '/demo/check' in routes; "
             "assert '/auth/login' not in routes; "
             "assert '/companies' not in routes; "
