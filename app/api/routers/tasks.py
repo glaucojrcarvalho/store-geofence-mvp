@@ -22,7 +22,7 @@ def create_task(payload: TaskCreate, db: Session = Depends(get_db)):
     return t
 
 @router.get("", response_model=list[TaskOut])
-def list_tasks(store_id: int = Query(...), db: Session = Depends(get_db)):
+def list_tasks(store_id: int = Query(..., gt=0), db: Session = Depends(get_db), user=Depends(require_role('admin'))):
     return db.query(Task).filter(Task.store_id == store_id).all()
 
 @router.post("/{task_id}/run", response_model=TaskRunOut, dependencies=[Depends(rate_limit('task_run', 10, 60))])
@@ -39,6 +39,8 @@ def run_task(task_id: int, payload: TaskRunRequest, db: Session = Depends(get_db
         raise HTTPException(status_code=409, detail="Store location not ready")
 
     company = db.get(Company, store.company_id)
+    if not company:
+        raise HTTPException(status_code=409, detail='Company not found')
     effective_radius = store.custom_radius_m or company.geofence_radius_m
 
     within, distance = within_radius_and_distance(db, store.id, payload.lat, payload.lng, effective_radius)
