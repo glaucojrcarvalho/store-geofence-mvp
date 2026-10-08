@@ -65,6 +65,7 @@ jobs:
           POSTGRES_PASSWORD: geofence
           PYTHONPATH: ${{ github.workspace }}
           E2E_DB_WAIT: 120
+          ENABLE_PRIVATE_API: "true"
         run: python -m pytest -q
 
   image:
