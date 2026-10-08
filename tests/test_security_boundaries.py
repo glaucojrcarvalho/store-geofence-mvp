@@ -109,7 +109,13 @@ def test_public_production_does_not_mount_business_api():
             "assert '/auth/login' not in routes; "
             "assert '/companies' not in routes; "
             "assert '/stores/{store_id}' not in routes; "
-            "assert '/tasks/{task_id}/run' not in routes")
+            "assert '/tasks/{task_id}/run' not in routes; "
+            "from fastapi.testclient import TestClient; "
+            "client=TestClient(app); "
+            "assert client.post('/auth/login', json={'email':'intruder@example.invalid','role':'admin'}).status_code == 404; "
+            "assert client.get('/stores/1').status_code == 404; "
+            "assert client.get('/tasks?store_id=1').status_code == 404; "
+            "assert client.post('/companies', json={'name':'x'}).status_code == 404")
     result = subprocess.run([sys.executable, "-c", code], env=env,
                             capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr
