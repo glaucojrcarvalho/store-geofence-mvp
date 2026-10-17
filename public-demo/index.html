@@ -18,9 +18,9 @@
     </header>
     <main>
       <section class="hero" aria-labelledby="hero-heading">
-        <div class="eyebrow"><span class="status-dot"></span> INTERACTIVE ENGINEERING DEMONSTRATION <span class="vtag">v0.2</span></div>
+        <div class="eyebrow"><span class="status-dot"></span> INTERACTIVE ENGINEERING DEMONSTRATION <span class="vtag">INTERACTIVE LAB</span></div>
         <h1 id="hero-heading">Location-aware decisions.<br><span class="gradient-text">Visible by design.</span></h1>
-        <p class="lead">Explore how a geofence determines whether a reported location falls inside a defined radius. Move the coordinates, change the radius, and see the result immediately.</p>
+        <p class="lead">Explore how a geofence determines whether a reported location falls inside a defined radius. Choose a synthetic store, move a worker on the diagram, and simulate whether a field task can be completed. Every decision is calculated locally in your browser.</p>
       </section>
       <div class="workspace">
         <section class="card diagram-card" aria-labelledby="viz-title">
@@ -28,7 +28,7 @@
             <div><p class="kicker">01 / LIVE SIMULATION</p><h2 id="viz-title">Geofence visualization</h2></div>
             <span class="pill">Synthetic data</span>
           </div>
-          <div class="viz" aria-hidden="true">
+          <div class="viz" id="viz" role="button" tabindex="0" aria-label="Plot a synthetic worker position" aria-describedby="viz-help">
             <div class="crosshair crosshair-x"></div>
             <div class="crosshair crosshair-y"></div>
             <div class="ring ring-outer"></div>
@@ -41,15 +41,23 @@
             <div class="viz-corner br">30.5234°E</div>
           </div>
           <div class="legend"><span><i class="swatch swatch-primary"></i> Allowed geofence</span><span><i class="swatch swatch-point"></i> Reported location</span></div>
-          <p class="hint">Illustrative radial view, not a geographical map. Distances use the Haversine formula; the complete backend uses PostGIS for its spatial decisions.</p>
+          <p class="hint" id="viz-help">Click or tap the diagram to place a synthetic worker, or use the arrow keys in 25 m steps. It is a scaled radial schematic, not a geographic map. The standalone browser demo uses Haversine; the separate backend prototype uses PostGIS.</p>
         </section>
         <section class="card controls-card" aria-labelledby="controls-title">
           <div class="section-head">
             <div><p class="kicker">02 / TRY IT</p><h2 id="controls-title">Change the input</h2></div>
           </div>
-          <div class="examples">
-            <button id="inside" type="button" class="preset active" aria-pressed="true">Inside perimeter <span>↗</span></button>
-            <button id="outside" type="button" class="preset" aria-pressed="false">Outside perimeter <span>↗</span></button>
+          <label class="store-label" for="store-select">Choose a synthetic store</label>
+          <select id="store-select" name="store">
+            <option value="kyiv">Central Kyiv · Retail</option>
+            <option value="lviv">Lviv · Distribution</option>
+            <option value="warsaw">Warsaw · Service hub</option>
+          </select>
+          <p id="store-meta" class="field-help">Illustrative store coordinates — not a customer location.</p>
+          <div class="examples" aria-label="Sample worker positions">
+            <button id="inside" type="button" class="preset active" aria-pressed="true">Inside <span aria-hidden="true">↗</span></button>
+            <button id="edge" type="button" class="preset" aria-pressed="false">Near boundary <span aria-hidden="true">↗</span></button>
+            <button id="outside" type="button" class="preset" aria-pressed="false">Outside <span aria-hidden="true">↗</span></button>
           </div>
           <form id="sim-form">
             <div class="two-cols">
@@ -67,12 +75,31 @@
           </div>
         </section>
       </div>
+      <section class="card workflow-card" aria-labelledby="workflow-title">
+        <div class="section-head">
+          <div><p class="kicker">03 / WORKER TASK</p><h2 id="workflow-title">Simulate field execution</h2></div>
+          <span class="pill">In-memory only</span>
+        </div>
+        <div class="workflow-layout">
+          <div class="task-box">
+            <div class="task-heading"><span id="task-name" class="task-name">Verify arrival</span><span class="task-tag">DEMO TASK</span></div>
+            <p id="task-description">A synthetic worker must be inside this store's configured radius to complete the assigned task.</p>
+            <button type="button" id="complete-task" class="evaluate" disabled>Complete simulated task <span aria-hidden="true">→</span></button>
+            <p id="task-note" class="field-help" role="status">Evaluate a valid worker position to unlock this task.</p>
+          </div>
+          <div class="activity">
+            <div class="activity-heading"><h3>Decision history</h3><button id="reset-demo" type="button" class="text-button">Reset lab ↺</button></div>
+            <p class="field-help">Events exist only in this browser session's memory and disappear when you reload.</p>
+            <ol id="activity-log" class="activity-list" aria-live="polite"><li>Choose a scenario to start the simulation.</li></ol>
+          </div>
+        </div>
+      </section>
       <section class="foot-grid" aria-label="Engineering notes">
         <div><span class="note-num">01</span><h3>Spatial calculation</h3><p>Great-circle distance determines if the reported coordinates are within the chosen radius.</p></div>
         <div><span class="note-num">02</span><h3>Production boundary</h3><p>This public demo is entirely static. Administrative endpoints, PostgreSQL, Redis, and real store data are not deployed.</p></div>
         <div><span class="note-num">03</span><h3>Trust &amp; limitations</h3><p>Coordinates are user-supplied and never verified. This example does not establish physical presence or prevent location spoofing.</p></div>
       </section>
-      <aside class="notice"><strong>Privacy-first by construction.</strong> Coordinates are processed in your browser, never submitted to a server or stored. Demo center: 50.4501° N, 30.5234° E (illustrative Kyiv coordinate).</aside>
+      <aside class="notice"><strong>Privacy-first by construction.</strong> Coordinates, demo tasks, and decisions stay in memory on this page. No network requests, accounts, actual GPS tracking, location attestation, or saved activity. All store and worker coordinates are illustrative.</aside>
     </main>
     <footer>STORE GEOFENCE · ENGINEERING PORTFOLIO <span>FASTAPI · POSTGIS · CELERY · REDIS · DOCKER</span></footer>
   </div>
