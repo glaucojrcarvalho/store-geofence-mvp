@@ -214,6 +214,11 @@ viz.addEventListener("keydown", event => {
   const currentLng = Number.isFinite(lngInput.valueAsNumber) ? lngInput.valueAsNumber : STORE.lng;
   let lat = currentLat;
   let lng = currentLng;
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    setSyntheticPosition(STORE.lat, STORE.lng, "Keyboard center");
+    return;
+  }
   switch (event.key) {
     case "ArrowUp": lat += step; break;
     case "ArrowDown": lat -= step; break;
