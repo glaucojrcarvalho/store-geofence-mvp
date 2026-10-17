@@ -23,7 +23,7 @@ test("radius and manual coordinates change the plotted eligibility", async ({ pa
   const ring = page.locator("#ring");
   const originalSize = await ring.evaluate(element => parseFloat(element.style.width));
 
-  await page.locator("#radius").fill("250");
+  await page.locator("#radius").evaluate(element => { element.value = "250"; element.dispatchEvent(new Event("input", {bubbles: true})); });
   await expect(page.locator("#radius-value")).toHaveText("250 m");
   const nextSize = await ring.evaluate(element => parseFloat(element.style.width));
   expect(nextSize).toBeGreaterThan(originalSize * 2);
