@@ -48,6 +48,9 @@ test("changing synthetic stores resets task; diagram and keyboard move worker", 
   await page.locator("#viz").click({ position: { x: 10, y: 15 } });
   await expect(page.locator("#result-status")).toHaveText("OUTSIDE GEOFENCE");
   await expect(page.locator("#complete-task")).toBeDisabled();
+  await page.locator("#viz").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#result-status")).toHaveText("INSIDE GEOFENCE");
 
   await page.locator("#reset-demo").click();
   await expect(page.locator("#store-select")).toHaveValue("kyiv");
