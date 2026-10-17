@@ -22,6 +22,42 @@ migrations and does not handle or retain personal data.
 
 See ../docs/production-demo.md for backend security-release gates.
 
+
+## Interactive portfolio lab
+
+The public page is a self-contained product demonstration, not the live
+FastAPI/PostGIS service. Its supported interactions are:
+
+- choose among **three illustrative locations** (Kyiv, Lviv, Warsaw);
+- try inside, near-boundary, or outside worker positions, or enter coordinates;
+- click/tap the radial diagram to place a reported position; arrow keys move
+  in 25 m steps, and Enter/Space centers the worker;
+- adjust a 25–500 m radius; both the drawn ring and Haversine decision update;
+- complete a **simulated** field task only when a valid reported position is
+  inside the selected sample geofence;
+- inspect the latest six decisions in page memory, and reset the scenario.
+
+The schematic uses a fixed 500 m plotting scale. Positions farther away are
+clamped at the diagram edge; the exact calculated distance remains visible.
+
+Task gating is only a visual simulation; browser-supplied coordinates cannot
+authenticate a worker's physical presence or authorize a real business
+operation. All state disappears on page reload. No visitor-supplied coordinates
+leave the device, and there is no external API, persistent database, GPS, or
+telemetry integration.
+
+### Verify before a public release
+
+- `python -m pytest -q --noconftest tests/test_public_demo_static.py`
+- `node --check public-demo/app.js`
+- `node --test tests/test_public_demo_interactions.mjs`
+- GitHub CI's `demo` job runs four additional Chromium E2E cases for
+  desktop/mobile user journeys, in addition to backend tests and Docker build.
+
+Do not treat passing these tests as authorization to deploy the private API.
+Publication remains controlled by an immutable published release and the
+separate Vercel deployment workflow.
+
 ## Release-only deployment on Vercel
 
 This repository deliberately disables automatic Git deployments with
