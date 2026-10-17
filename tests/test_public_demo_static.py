@@ -31,3 +31,21 @@ def test_vercel_headers_block_network_upload_and_inline_script():
     assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
     assert "geolocation=()" in headers["Permissions-Policy"]
     assert config["git"]["deploymentEnabled"] is False
+
+
+def test_portfolio_demo_has_executable_worker_task_controls():
+    html = (ROOT / "index.html").read_text()
+    js = (ROOT / "app.js").read_text()
+    for control in (
+        "store-select", "inside", "edge", "outside", "radius", "viz",
+        "complete-task", "reset-demo", "activity-log", "task-note",
+    ):
+        assert f'id="{control}"' in html
+    assert 'role="button"' in html and 'tabindex="0"' in html
+    assert 'addEventListener("keydown"' in js
+    assert 'addEventListener("click"' in js
+    assert 'taskButton.disabled = taskDone || !currentDecision || !currentDecision.allowed' in js
+    assert 'ringDiameter' in js and '.style.width' in js
+    assert 'activity.length > 6' in js
+    assert 'localStorage' not in js and 'sessionStorage' not in js
+    assert 'document.cookie' not in js

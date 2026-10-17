@@ -79,3 +79,28 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build production image
         run: docker build --pull -t store-geofence-demo:ci .
+
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate standalone demo JavaScript
+        run: |
+          node --check public-demo/app.js
+          node --test tests/test_public_demo_interactions.mjs
+      - name: Install pinned browser test tooling
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @playwright/test@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start isolated static demo
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory public-demo >/tmp/geofence-demo.log 2>&1 &
+          echo $! > /tmp/geofence-demo.pid
+          sleep 2
+          curl --fail --silent --show-error http://127.0.0.1:4173/ >/dev/null
+      - name: Exercise public demo in Chromium
+        run: npx playwright test tests/static_demo_playwright.spec.mjs --browser=chromium
